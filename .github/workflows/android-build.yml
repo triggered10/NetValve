@@ -1,0 +1,55 @@
+
+name: Build NetValve Production APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018"
+
+      - name: Build production netstack
+        run: |
+          chmod +x gradlew netstack/build-aar.sh
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          cd netstack
+          ./build-aar.sh arm64
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug -Pnetvalve.netstack=true
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetValve-Production-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
